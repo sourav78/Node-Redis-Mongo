@@ -26,6 +26,9 @@ app.use(cors({
 }))
 
 // Routes
+app.get("/", (req, res) => {
+  res.send("API is running...")
+});
 app.get("/products", getAllProducts)
 app.get("/products/:productId", getProductById)
 app.post("/products", createProduct)
