@@ -15,3 +15,12 @@
   docker rm mongo-redis-cont # Delete container from docker
   docker volume rm mongo-data # Delete volume created by mongodb container
   ```
+
+## Redis Setup
+- Redis used for caching purpose 
+  ``` bash
+  docker run -d -p 6379:6379 --name redis-cont -v redis-data:/data redis
+  ```
+  - Here I expose port 6379 in localhost and bind the port with container port which is 6379
+  - Here Container name is `redis-cont`
+  - Here volume name is `redis-data`

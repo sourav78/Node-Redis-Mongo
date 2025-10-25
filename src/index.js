@@ -4,6 +4,7 @@ import { RouteNotFound } from "./middlewares/RouteNotFoundHandler.js"
 import cors from 'cors'
 import { connectMongoDb } from "./db/MongoDBConnect.js"
 import { createProduct, deleteProduct, getAllProducts, getProductById, updateProduct } from "./controllers/ProductControllers.js"
+import redisClient from "./utils/RedisConnection.js"
 dotenv.config()
 
 // Establish mongodb connection

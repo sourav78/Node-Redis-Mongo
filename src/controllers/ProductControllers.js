@@ -1,14 +1,27 @@
 import mongoose from "mongoose";
 import Product from "../db/ProductSchema.js";
+import redisClient from "../utils/RedisConnection.js";
 
 export const getAllProducts = async (req, res) => {
   try {
+
+    // 1. Check Redis cache for products
+    const cacheProducts = await redisClient.get("allProducts")
+
+    // If found in cache, return the cached products
+    if(cacheProducts){
+      return res.status(200).json(JSON.parse(cacheProducts));
+    }
+
     // 2. Use Product.find({}) to find all documents
     // An empty object {} means "match everything"
     const products = await Product.find({});
 
+    // Store the fetched products in Redis cache for future requests
+    await redisClient.set("allProducts", JSON.stringify(products), { EX: 1800 }); // Cache expires in 30 minutes
+
     // 3. Send the found products as a JSON response
-    res.status(200).json(products);
+    return res.status(200).json(products);
 
   } catch (error) {
     // 4. Handle any potential errors
@@ -26,6 +39,14 @@ export const getProductById = async (req, res) => {
       return res.status(400).json({ message: 'Invalid Product ID format' });
     }
 
+    // 1. Check Redis cache for the specific product
+    const cacheProduct = await redisClient.get(`product:${productId}`);
+
+    // If found in cache, return the cached product
+    if (cacheProduct) {
+      return res.status(200).json(JSON.parse(cacheProduct));
+    }
+
     // B. Find the product in the database
     const product = await Product.findById(productId);
 
@@ -33,6 +54,9 @@ export const getProductById = async (req, res) => {
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
     }
+
+    // Store the fetched product in Redis cache for future requests in 10 minutes
+    await redisClient.set(`product:${productId}`, JSON.stringify(product), { EX: 600 }); // Cache expires in 10 minutes
 
     // D. Send the product if found
     res.status(200).json(product);
@@ -61,6 +85,9 @@ export const createProduct = async (req, res) => {
     // Create and save the new product
     // Mongoose will automatically validate req.body against your schema
     const newProduct = await Product.create(productData);
+
+    // Invalidate the cached list of all products since we've added a new one
+    await redisClient.del("allProducts");
 
     // Send a 201 (Created) status with the new product
     res.status(201).json(newProduct);
@@ -105,6 +132,10 @@ export const updateProduct = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
+    // Invalidate the cached product and the list of all products
+    await redisClient.del(`product:${productId}`);
+    await redisClient.del("allProducts");
+
     // 4. Send the updated product
     res.status(200).json(updatedProduct);
 
@@ -137,6 +168,10 @@ export const deleteProduct = async (req, res) => {
       // If deletedProduct is null, no product with that ID existed
       return res.status(404).json({ message: 'Product not found' });
     }
+
+    // Invalidate the cached product and the list of all products
+    await redisClient.del(`product:${productId}`);
+    await redisClient.del("allProducts");
 
     // 4. Send a success response
     res.status(200).json({ 
